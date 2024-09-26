@@ -6,7 +6,12 @@ return {
     options = {
       mode = "tabs",
       separator_style = "thin",
-      themable = true
+      indicator = {
+        style = 'none'
+      },
+      themable = true,
+      tab_size = 24,
+      max_name_length = 16
     },
   },
 }

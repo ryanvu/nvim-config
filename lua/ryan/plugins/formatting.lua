@@ -18,12 +18,6 @@ return {
 				graphql = { "prettier" },
 				lua = { "stylua" },
 			},
-			-- format_on_save = {
-			-- 	enabled = false,
-			-- 	-- lsp_fallback = true,
-			-- 	async = false,
-			-- 	timeout_ms = 1000,
-			-- },
 		})
 
 		vim.keymap.set({ "n", "v" }, "<leader>fm", function()
