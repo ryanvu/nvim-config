@@ -1,101 +1,80 @@
 return {
 	"nvim-telescope/telescope.nvim",
-	branch = "0.1.x",
+	branch = "0.1.x", -- Use the 0.1.x branch for stability
 	dependencies = {
 		"nvim-lua/plenary.nvim",
+		-- fzf-native is essential for speed, requires 'fzf' CLI tool installed
 		{ "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
-		"nvim-tree/nvim-web-devicons",
-		"nvim-telescope/telescope-file-browser.nvim",
-		"dharmx/telescope-media.nvim",
+		"nvim-tree/nvim-web-devicons", -- For file icons
+		"nvim-telescope/telescope-file-browser.nvim", -- If you use file Browse features
+		-- "dharmx/telescope-media.nvim", -- Removed for simplification
 	},
 	config = function()
 		local telescope = require("telescope")
 		local actions = require("telescope.actions")
-		local transform_mod = require("telescope.actions.mt").transform_mod
-		local fb_actions = require("telescope").extensions.file_browser.actions
-		local trouble = require("trouble")
-		local trouble_telescope = require("trouble.providers.telescope")
-
-		-- or create your custom action
-		local custom_actions = transform_mod({
-			open_trouble_qflist = function(prompt_bufnr)
-				trouble.toggle("quickfix")
-			end,
-		})
+		local builtin = require("telescope.builtin") -- For common pickers
 
 		telescope.setup({
+			-- Minimal defaults for a clean experience
 			defaults = {
-				wrap_results = true,
-				layout_strategy = "horizontal",
-				layout_config = { prompt_position = "top" },
-				sorting_strategy = "ascending",
-				winblend = 0,
-				path_display = { "smart" },
-				borderchars = { " ", " ", " ", " ", " ", " ", " ", " " },
-				mappings = {
-          n = {
-            ["<C-d>"] = actions.delete_buffer
-          },
-					i = {
-						["<C-k>"] = actions.move_selection_previous, -- move to prev result
-						["<C-j>"] = actions.move_selection_next, -- move to next result
-						["<C-q>"] = actions.send_selected_to_qflist + custom_actions.open_trouble_qflist,
-						["<C-t>"] = trouble_telescope.smart_open_with_trouble,
-					},
-				},
-			},
+				-- wrap_results = true, -- Optional, uncomment if you prefer results to wrap
+				-- layout_strategy = "horizontal", -- Optional, defaults to auto
+				-- layout_config = { prompt_position = "top" }, -- Optional
+				-- sorting_strategy = "ascending", -- Optional
+				-- winblend = 0, -- Optional, uncomment for transparency
+				-- path_display = { "smart" }, -- Optional
+				-- borderchars = { " ", " ", " ", " ", " ", " ", " ", " " }, -- Optional, uncomment for no borders
 
-			extensions = {
-				file_browser = {
-					theme = "dropdown",
-					-- disables netrw and use telescope-file-browser in its place
-					hijack_netrw = true,
-					mappings = {
-						["n"] = {
-							-- your custom normal mode mappings
-							["N"] = fb_actions.create,
-							["h"] = fb_actions.goto_parent_dir,
-							["/"] = function()
-								vim.cmd("startinsert")
-							end,
-							["<PageUp>"] = actions.preview_scrolling_up,
-							["<PageDown>"] = actions.preview_scrolling_down,
-						},
+				-- Basic mappings for Telescope windows
+				mappings = {
+					i = {
+						["<C-k>"] = actions.move_selection_previous, -- move to previous result in results pane
+						["<C-j>"] = actions.move_selection_next,    -- move to next result in results pane
+						["<C-q>"] = actions.send_selected_to_qflist + actions.open_qflist, -- send selected to quickfix list
+						["<C-c>"] = actions.close, -- close telescope
+					},
+					n = {
+						["<C-k>"] = actions.move_selection_previous,
+						["<C-j>"] = actions.move_selection_next,
+						["<C-q>"] = actions.send_selected_to_qflist + actions.open_qflist,
 					},
 				},
 			},
+			-- You can add specific picker options here if needed, e.g.:
+			-- pickers = {
+			--   find_files = {
+			--     hidden = true, -- Show hidden files by default
+			--   },
+			-- },
 		})
 
-		telescope.load_extension("fzf")
-		telescope.load_extension("file_browser")
-		telescope.load_extension("media")
-		-- set keymaps
-		local keymap = vim.keymap -- for conciseness
-    local builtin = require("telescope.builtin")
+		-- Load Extensions:
+		telescope.load_extension("fzf") -- Essential for speed with fzf-native
+		telescope.load_extension("file_browser") -- For `Telescope file_browser` command
 
-		keymap.set("n", "<leader>ff", "<cmd>Telescope find_files<cr>", { desc = "Fuzzy find files in cwd" })
-		keymap.set("n", "<leader>fr", "<cmd>Telescope oldfiles<cr>", { desc = "Fuzzy find recent files" })
-		keymap.set("n", "<leader>fw", "<cmd>Telescope live_grep<cr>", { desc = "Find string in cwd" })
-		keymap.set("n", "<leader>fc", "<cmd>Telescope grep_string<cr>", { desc = "Find string under cursor in cwd" })
-		keymap.set("n", "<leader>fob", builtin.buffers, { desc = "Browse open buffers" })
+		-- Set Keymaps (using the built-in pickers)
+		local keymap = vim.keymap
 
-		keymap.set("n", "<leader>fb", function()
-			local function telescope_buffer_dir()
-				return vim.fn.expand("%:p:h")
-			end
+		keymap.set("n", "<leader>ff", builtin.find_files, { desc = "Fuzzy find files in cwd" })
+		keymap.set("n", "<leader>fr", builtin.oldfiles, { desc = "Fuzzy find recent files" })
+		keymap.set("n", "<leader>fw", builtin.live_grep, { desc = "Find string in cwd" })
+		keymap.set("n", "<leader>fc", builtin.grep_string, { desc = "Find string under cursor in cwd" })
+		keymap.set("n", "<leader>fb", builtin.buffers, { desc = "Browse open buffers" })
 
-			require("telescope").extensions.file_browser.file_browser({
-				path = "%:p:h",
-				cwd = telescope_buffer_dir(),
-				respect_gitignore = false,
-				hidden = true,
-				grouped = true,
-				previewer = true,
-				initial_mode = "normal",
-				layout_strategy = "horizontal",
-				layout_config = { height = 40, width = 0.8 },
-				borderchars = { " ", " ", " ", " ", " ", " ", " ", " " },
+		-- File Browser Keymap (optional, but useful if you keep the extension)
+		keymap.set("n", "<leader>sf", function()
+			telescope.extensions.file_browser.file_browser({
+				path = "%:p:h", -- Start in current file's directory
+				-- other options if desired for file_browser
 			})
-		end)
+		end, { desc = "File Browser" })
+
+		-- LSP related pickers (will work once LSP setup is fixed)
+		-- These are defined in lspconfig.lua, but Telescope is the UI.
+		-- You already have these in your lspconfig.lua LspAttach autocmd, which is a good place.
+		-- keymap.set("n", "gd", "<cmd>Telescope lsp_definitions<CR>", { desc = "Go to definition (Telescope)" })
+		-- keymap.set("n", "gr", "<cmd>Telescope lsp_references<CR>", { desc = "Show LSP references (Telescope)" })
+		-- keymap.set("n", "<leader>D", "<cmd>Telescope diagnostics bufnr=0<CR>", { desc = "Show buffer diagnostics (Telescope)" })
+
 	end,
 }

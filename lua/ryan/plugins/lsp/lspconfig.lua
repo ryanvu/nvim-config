@@ -2,9 +2,10 @@ return {
 	"neovim/nvim-lspconfig",
 	event = { "BufReadPre", "BufNewFile" },
 	dependencies = {
-		"hrsh7th/cmp-nvim-lsp",
-		{ "antosha417/nvim-lsp-file-operations", config = true },
-		{ "folke/neodev.nvim", opts = {} },
+		"hrsh7th/cmp-nvim-lsp", -- Required for LSP completion
+		{ "antosha417/nvim-lsp-file-operations", config = true }, -- Good for LSP-driven file renames
+		{ "folke/neodev.nvim", opts = {} }, -- Helps with Neovim LSP setup for Lua
+    -- You can add navbuddy later if you still want it, but let's keep it minimal for now.
     {
       "SmiteshP/nvim-navbuddy",
       dependencies = {
@@ -15,184 +16,120 @@ return {
     }
 	},
 	config = function()
-		-- import lspconfig plugin
 		local lspconfig = require("lspconfig")
-
-		-- import mason_lspconfig plugin
 		local mason_lspconfig = require("mason-lspconfig")
-
-		-- import cmp-nvim-lsp plugin
 		local cmp_nvim_lsp = require("cmp_nvim_lsp")
+		local keymap = vim.keymap
 
-		local keymap = vim.keymap -- for conciseness
+		-- General capabilities for all LSP servers
+		local capabilities = cmp_nvim_lsp.default_capabilities()
 
+		-- Recommended: Set up global autocommands for LSP features
 		vim.api.nvim_create_autocmd("LspAttach", {
 			group = vim.api.nvim_create_augroup("UserLspConfig", {}),
 			callback = function(ev)
-				-- Buffer local mappings.
-				-- See `:help vim.lsp.*` for documentation on any of the below functions
 				local opts = { buffer = ev.buf, silent = true }
 
-				-- set keybinds
-				opts.desc = "Show LSP references"
-				keymap.set("n", "gR", "<cmd>Telescope lsp_references<CR>", opts) -- show definition, references
-
-				opts.desc = "Go to declaration"
-				keymap.set("n", "gD", vim.lsp.buf.declaration, opts) -- go to declaration
-
-				opts.desc = "Show LSP definitions"
-				keymap.set("n", "gd", "<cmd>Telescope lsp_definitions<CR>", opts) -- show lsp definitions
-
-				opts.desc = "Show LSP implementations"
-				keymap.set("n", "gi", "<cmd>Telescope lsp_implementations<CR>", opts) -- show lsp implementations
-
-				opts.desc = "Show LSP type definitions"
-				keymap.set("n", "gt", "<cmd>Telescope lsp_type_definitions<CR>", opts) -- show lsp type definitions
-
-				opts.desc = "See available code actions"
-				keymap.set({ "n", "v" }, "<leader>ca", vim.lsp.buf.code_action, opts) -- see available code actions, in visual mode will apply to selection
-
-				opts.desc = "Smart rename"
-				keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts) -- smart rename
-
-				opts.desc = "Show buffer diagnostics"
-				keymap.set("n", "<leader>D", "<cmd>Telescope diagnostics bufnr=0<CR>", opts) -- show  diagnostics for file
-
-				opts.desc = "Show line diagnostics"
-				keymap.set("n", "<leader>d", vim.diagnostic.open_float, opts) -- show diagnostics for line
-
-				opts.desc = "Go to previous diagnostic"
-				keymap.set("n", "[d", vim.diagnostic.goto_prev, opts) -- jump to previous diagnostic in buffer
-
-				opts.desc = "Go to next diagnostic"
-				keymap.set("n", "]d", vim.diagnostic.goto_next, opts) -- jump to next diagnostic in buffer
-
-				opts.desc = "Show documentation for what is under cursor"
-				keymap.set("n", "K", vim.lsp.buf.hover, opts) -- show documentation for what is under cursor
-
-				opts.desc = "Restart LSP"
-				keymap.set("n", "<leader>rs", ":LspRestart<CR>", opts) -- mapping to restart lsp if necessary
-
+				-- Basic LSP keymaps (adjust as you prefer)
+				keymap.set("n", "gd", vim.lsp.buf.definition, opts)
+				keymap.set("n", "K", vim.lsp.buf.hover, opts)
+				keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
+				keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
+				keymap.set("n", "gr", "<cmd>Telescope lsp_references<CR>", opts) -- Requires Telescope
+				keymap.set("n", "<leader>D", "<cmd>Telescope diagnostics bufnr=0<CR>", opts) -- Requires Telescope
+				keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
+				keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
 			end,
 		})
 
-		-- used to enable autocompletion (assign to every lsp server config)
-		local capabilities = cmp_nvim_lsp.default_capabilities()
+		-- Use mason-lspconfig to set up all installed LSP servers with default configurations
+		-- This replaces the problematic `setup_handlers` call
+		mason_lspconfig.setup({
+			-- A 'handler' is a function that gets called for each LSP server Mason installs.
+			-- We define custom handlers for specific servers if they need special settings.
+			handlers = {
+				-- Default handler: For any server not specifically listed below,
+				-- just set it up with default capabilities.
+				function(server_name)
+					lspconfig[server_name].setup({
+						capabilities = capabilities,
+						-- Additional default options can go here, e.g., on_attach for general setup
+					})
+				end,
 
-		-- Change the Diagnostic symbols in the sign column (gutter)
-		-- (not in youtube nvim video)
-		local signs = { Error = " ", Warn = " ", Hint = "󰠠 ", Info = " " }
-		for type, icon in pairs(signs) do
-			local hl = "DiagnosticSign" .. type
-			vim.fn.sign_define(hl, { text = icon, texthl = hl, numhl = "" })
-		end
-
-		mason_lspconfig.setup_handlers({
-			-- default handler for installed servers
-			function(server_name)
-				lspconfig[server_name].setup({
-					capabilities = capabilities,
-				})
-			end,
-      ["tailwindcss"] = function()
-        lspconfig.tailwindcss.setup({
-          capabilities = capabilities,
-          init_options = {
-            userLanguages = {
-              elixir = "html-eex",
-              eelixir = "html-eex",
-              heex = "html-eex"
-            }
-          },
-          filetypes = { "html", "css", "scss", "javascript", "javascriptreact", "typescript", "typescriptreact", "svelte", "heex", "elixir", "eelixir" }
-        })
-      end,
-			["graphql"] = function()
-				-- configure graphql language server
-				lspconfig["graphql"].setup({
-					capabilities = capabilities,
-					filetypes = { "graphql", "gql", "svelte", "typescriptreact", "javascriptreact" },
-				})
-			end,
-			["emmet_ls"] = function()
-				-- configure emmet language server
-				lspconfig["emmet_ls"].setup({
-					capabilities = capabilities,
-					filetypes = {
-						"html",
-						"typescriptreact",
-						"javascriptreact",
-						"css",
-						"sass",
-						"scss",
-						"less",
-						"svelte",
-            "heex",
-            "elixir",
-            "eex"
-					},
-				})
-			end,
-			["lua_ls"] = function()
-				-- configure lua server (with special settings)
-				lspconfig["lua_ls"].setup({
-					capabilities = capabilities,
-					settings = {
-						Lua = {
-							-- make the language server recognize "vim" global
-							diagnostics = {
-								globals = { "vim" },
+				-- Custom handler for `typescriptls` (for React/Node.js)
+				-- You might want specific settings for JSX, TSX, etc. here.
+				["typescriptls"] = function()
+					lspconfig.typescriptls.setup({
+						capabilities = capabilities,
+						-- Example settings for JS/TS projects. Adjust as needed.
+						settings = {
+							javascript = {
+								preferences = {
+									importModuleSpecifierEnding = "js",
+									quoteStyle = "double",
+								},
 							},
-							completion = {
-								callSnippet = "Replace",
+							typescript = {
+								preferences = {
+									importModuleSpecifierEnding = "js",
+									quoteStyle = "double",
+								},
 							},
 						},
-					},
-				})
-			end,
-      ["elixirls"] = function ()
-        lspconfig["elixirls"].setup({
-          capabilities = capabilities,
-          cmd = { "/usr/local/Cellar/elixir-ls/0.21.3/libexec/language_server.sh" }
-        })
-      end,
-      -- ["html"] = function ()
-      -- lspconfig["html"].setup({
-      --   capabilities = capabilities,
-      --     filetypes = { "elixir", "heex", "eex" }
-      -- })
-      -- end
+						init_options = {
+							hostInfo = "neovim",
+						},
+					})
+				end,
 
+				-- Custom handler for `eslint` (if you use it for linting)
+				["eslint"] = function()
+					lspconfig.eslint.setup({
+						capabilities = capabilities,
+						-- Ensure ESLint lints on save, etc.
+						on_attach = function(client, bufnr)
+							vim.api.nvim_create_autocmd("BufWritePre", {
+								buffer = bufnr,
+								command = "EslintFixAll", -- Or vim.lsp.buf.format({async = true}) if you use format on save
+							})
+						end,
+					})
+				end,
+
+				-- Custom handler for `lua_ls` (for Neovim config)
+				["lua_ls"] = function()
+					lspconfig.lua_ls.setup({
+						capabilities = capabilities,
+						settings = {
+							Lua = {
+								diagnostics = {
+									globals = { "vim" },
+								},
+								workspace = {
+									library = {
+										vim.fn.stdpath("nvim") .. "/lua",
+										vim.fn.stdpath("nvim") .. "/lua/ryan", -- Adjust if your config structure is different
+									},
+								},
+								telemetry = { enable = false },
+							},
+						},
+					})
+				end,
+
+				-- Placeholder for Ruby:
+				-- When you start working with Ruby, you'll likely want 'solargraph'.
+				-- You'd add 'solargraph' to mason.lua's ensure_installed.
+				-- Then uncomment and configure this handler:
+				-- ["solargraph"] = function()
+				--   lspconfig.solargraph.setup({
+				--     capabilities = capabilities,
+				--     -- cmd = { "bundle", "exec", "solargraph", "stdio" }, -- Example if using bundler
+				--     -- filetypes = { "ruby", "rb", "gemspec", "rakefile" },
+				--   })
+				-- end,
+			},
 		})
 	end,
-  -- Noice
-	require("noice").setup({
-		lsp = {
-			-- override markdown rendering so that **cmp** and other plugins use **Treesitter**
-			override = {
-				["vim.lsp.util.convert_input_to_markdown_lines"] = true,
-				["vim.lsp.util.stylize_markdown"] = true,
-				["cmp.entry.get_documentation"] = true, -- requires hrsh7th/nvim-cmp
-			},
-		},
-
-		routes = {
-			{
-				filter = {
-					event = "notify",
-					find = "No information available",
-				},
-				opts = { skip = true },
-			},
-		},
-
-		-- you can enable a preset for easier configuration
-		presets = {
-			bottom_search = false, -- use a classic bottom cmdline for search
-			command_palette = true, -- position the cmdline and popupmenu together
-			long_message_to_split = true, -- long messages will be sent to a split
-			inc_rename = false, -- enables an input dialog for inc-rename.nvim
-			lsp_doc_border = true, -- add a border to hover docs and signature help
-		},
-	}),
 }
